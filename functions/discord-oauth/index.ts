@@ -32,11 +32,11 @@ serve(async (req) => {
         });
       }
 
-      const clientId = Deno.env.get('DISCORD_CLIENT_ID');
+      const clientId = '1397971356490006558'; // Your actual Discord client ID
       const clientSecret = Deno.env.get('DISCORD_CLIENT_SECRET');
 
-      if (!clientId || !clientSecret) {
-        return new Response(JSON.stringify({ error: 'Discord credentials not configured' }), {
+      if (!clientSecret) {
+        return new Response(JSON.stringify({ error: 'Discord client secret not configured' }), {
           status: 500,
           headers: {
             'Content-Type': 'application/json',

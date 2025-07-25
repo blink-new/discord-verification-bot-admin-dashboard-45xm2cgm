@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { VerificationPage } from '@/components/VerificationPage';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import { BotInterface } from '@/components/BotInterface';
+import { DiscordCallback } from '@/components/DiscordCallback';
 
 function App() {
   return (
@@ -9,6 +10,9 @@ function App() {
       <Routes>
         {/* Default page is verification */}
         <Route path="/" element={<VerificationPage />} />
+        
+        {/* Discord OAuth callback */}
+        <Route path="/callback" element={<DiscordCallback />} />
         
         {/* Admin panel at /admin */}
         <Route path="/admin" element={<AdminDashboard />} />
