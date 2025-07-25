@@ -54,7 +54,7 @@ export function DiscordCallback() {
           
           // Redirect to verification page with success
           setTimeout(() => {
-            window.location.href = `/verify/${state || 'default'}?success=true&user=${result.user.username}`;
+            window.location.href = `/?success=true&user=${result.user.username}&guildid=${state || ''}`;
           }, 2000);
         } else {
           throw new Error(result.error || 'Verification failed');

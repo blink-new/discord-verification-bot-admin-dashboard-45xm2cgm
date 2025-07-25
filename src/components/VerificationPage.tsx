@@ -14,7 +14,7 @@ export function VerificationPage() {
   const [error, setError] = useState('');
   const [userInfo, setUserInfo] = useState<any>(null);
 
-  const serverId = searchParams.get('server') || searchParams.get('guildid');
+  const guildId = searchParams.get('guildid') || searchParams.get('server');
   const commandId = searchParams.get('cmd');
 
   const handleDiscordCallback = useCallback(async (code: string) => {
@@ -31,7 +31,7 @@ export function VerificationPage() {
         body: JSON.stringify({
           code: code,
           redirectUri: window.location.origin + '/',
-          serverId: serverId
+          serverId: guildId
         }),
       });
 
@@ -55,14 +55,23 @@ export function VerificationPage() {
     } finally {
       setIsVerifying(false);
     }
-  }, [serverId]);
+  }, [guildId]);
 
   useEffect(() => {
     // Check if user is already authenticated with Discord
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
+    const success = urlParams.get('success');
+    const username = urlParams.get('user');
     
-    if (code && !isVerified) {
+    if (success === 'true' && username) {
+      // User was redirected back from successful verification
+      setIsVerified(true);
+      setUserInfo({
+        username: username,
+        discriminator: '0000'
+      });
+    } else if (code && !isVerified) {
       handleDiscordCallback(code);
     }
   }, [isVerified, handleDiscordCallback]);
@@ -77,7 +86,7 @@ export function VerificationPage() {
     
     const redirectUri = encodeURIComponent(`${window.location.origin}/`);
     const scope = 'identify guilds.join';
-    const state = serverId || 'default';
+    const state = guildId || 'default';
     
     // Redirect to Discord OAuth - redirect back to main page with code
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
@@ -109,10 +118,10 @@ export function VerificationPage() {
               </div>
             </div>
             
-            {serverId && (
+            {guildId && (
               <div className="p-4 bg-primary/10 rounded-lg">
-                <p className="text-sm font-medium">Server ID:</p>
-                <p className="text-xs text-muted-foreground font-mono">{serverId}</p>
+                <p className="text-sm font-medium">Guild ID:</p>
+                <p className="text-xs text-muted-foreground font-mono">{guildId}</p>
               </div>
             )}
 
@@ -141,10 +150,10 @@ export function VerificationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {serverId && (
+          {guildId && (
             <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium">Server ID:</p>
-              <p className="text-xs text-muted-foreground font-mono">{serverId}</p>
+              <p className="text-sm font-medium">Guild ID:</p>
+              <p className="text-xs text-muted-foreground font-mono">{guildId}</p>
             </div>
           )}
 
