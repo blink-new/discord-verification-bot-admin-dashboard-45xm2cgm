@@ -68,7 +68,7 @@ export function BotInterface() {
 
     try {
       const commandId = `cmd_${Date.now()}`;
-      const verifyUrl = `${window.location.origin}/?guildid=${serverId}&cmd=${commandId}`;
+      const verifyUrl = `${window.location.origin}/?guildid=${serverId}`;
       
       await blink.db.botCommands.create({
         id: commandId,

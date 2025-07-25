@@ -74,7 +74,7 @@ export function VerificationPage() {
     // Get Discord client ID from environment
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
     if (!clientId) {
-      setError('Discord client ID not configured');
+      setError('Discord client ID not configured. Please add VITE_DISCORD_CLIENT_ID to your environment.');
       return;
     }
     
@@ -182,13 +182,6 @@ export function VerificationPage() {
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
               By verifying, you agree to allow this bot to store your Discord user information and access token for server management purposes.
-            </p>
-          </div>
-
-          {/* Show current URL for debugging */}
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">
-              Current URL: {window.location.href}
             </p>
           </div>
         </CardContent>
