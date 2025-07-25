@@ -4,8 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Shield, ExternalLink } from 'lucide-react';
-import { blink } from '@/blink/client';
+import { CheckCircle, Shield, ExternalLink, Server } from 'lucide-react';
 
 export function VerificationPage() {
   const [searchParams] = useSearchParams();
@@ -14,22 +13,22 @@ export function VerificationPage() {
   const [error, setError] = useState('');
   const [userInfo, setUserInfo] = useState<any>(null);
 
-  const guildId = searchParams.get('guildid') || searchParams.get('server');
-  const commandId = searchParams.get('cmd');
+  const guildId = searchParams.get('guildid') || searchParams.get('guild') || searchParams.get('server');
+  const code = searchParams.get('code');
 
-  const handleDiscordCallback = useCallback(async (code: string) => {
+  const handleDiscordCallback = useCallback(async (authCode: string) => {
     setIsVerifying(true);
     setError('');
 
     try {
       // Call our backend function to handle Discord OAuth securely
-      const response = await fetch(`https://discord-verification-bot-admin-dashboard-45xm2cgm.functions.blink.new/discord-oauth`, {
+      const response = await fetch(`https://45xm2cgm--discord-oauth.functions.blink.new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          code: code,
+          code: authCode,
           redirectUri: window.location.origin + '/',
           serverId: guildId
         }),
@@ -49,6 +48,13 @@ export function VerificationPage() {
         email: result.user.email
       });
       setIsVerified(true);
+
+      // Clean up URL by removing the code parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('code');
+      newUrl.searchParams.delete('state');
+      window.history.replaceState({}, '', newUrl.toString());
+
     } catch (err) {
       setError('Failed to verify with Discord. Please try again.');
       console.error('Verification error:', err);
@@ -58,23 +64,11 @@ export function VerificationPage() {
   }, [guildId]);
 
   useEffect(() => {
-    // Check if user is already authenticated with Discord
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const success = urlParams.get('success');
-    const username = urlParams.get('user');
-    
-    if (success === 'true' && username) {
-      // User was redirected back from successful verification
-      setIsVerified(true);
-      setUserInfo({
-        username: username,
-        discriminator: '0000'
-      });
-    } else if (code && !isVerified) {
+    // Handle Discord OAuth callback
+    if (code && !isVerified && !isVerifying) {
       handleDiscordCallback(code);
     }
-  }, [isVerified, handleDiscordCallback]);
+  }, [code, isVerified, isVerifying, handleDiscordCallback]);
 
   const initiateDiscordAuth = () => {
     // Get Discord client ID from environment
@@ -120,7 +114,10 @@ export function VerificationPage() {
             
             {guildId && (
               <div className="p-4 bg-primary/10 rounded-lg">
-                <p className="text-sm font-medium">Guild ID:</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <Server className="h-4 w-4" />
+                  <p className="text-sm font-medium">Guild ID:</p>
+                </div>
                 <p className="text-xs text-muted-foreground font-mono">{guildId}</p>
               </div>
             )}
@@ -152,7 +149,10 @@ export function VerificationPage() {
         <CardContent className="space-y-4">
           {guildId && (
             <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium">Guild ID:</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Server className="h-4 w-4" />
+                <p className="text-sm font-medium">Target Guild:</p>
+              </div>
               <p className="text-xs text-muted-foreground font-mono">{guildId}</p>
             </div>
           )}
@@ -166,7 +166,7 @@ export function VerificationPage() {
           <Button
             onClick={initiateDiscordAuth}
             disabled={isVerifying}
-            className="w-full"
+            className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white"
             size="lg"
           >
             {isVerifying ? (
@@ -182,6 +182,13 @@ export function VerificationPage() {
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
               By verifying, you agree to allow this bot to store your Discord user information and access token for server management purposes.
+            </p>
+          </div>
+
+          {/* Show current URL for debugging */}
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              Current URL: {window.location.href}
             </p>
           </div>
         </CardContent>

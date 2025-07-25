@@ -23,7 +23,7 @@ serve(async (req) => {
       const { code, redirectUri, serverId } = await req.json();
       
       if (!code) {
-        return new Response(JSON.stringify({ error: 'Authorization code is required' }), {
+        return new Response(JSON.stringify({ error: 'Discord authorization code is required' }), {
           status: 400,
           headers: {
             'Content-Type': 'application/json',
@@ -32,15 +32,28 @@ serve(async (req) => {
         });
       }
 
-      // Exchange code for access token
+      const clientId = Deno.env.get('DISCORD_CLIENT_ID');
+      const clientSecret = Deno.env.get('DISCORD_CLIENT_SECRET');
+
+      if (!clientId || !clientSecret) {
+        return new Response(JSON.stringify({ error: 'Discord credentials not configured' }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+
+      // Exchange Discord authorization code for access token
       const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          client_id: Deno.env.get('DISCORD_CLIENT_ID') || '',
-          client_secret: Deno.env.get('DISCORD_CLIENT_SECRET') || '',
+          client_id: clientId,
+          client_secret: clientSecret,
           grant_type: 'authorization_code',
           code: code,
           redirect_uri: redirectUri,
@@ -49,8 +62,8 @@ serve(async (req) => {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text();
-        console.error('Token exchange failed:', errorData);
-        return new Response(JSON.stringify({ error: 'Failed to exchange code for token' }), {
+        console.error('Discord token exchange failed:', errorData);
+        return new Response(JSON.stringify({ error: 'Failed to exchange Discord authorization code for token' }), {
           status: 400,
           headers: {
             'Content-Type': 'application/json',
@@ -61,7 +74,7 @@ serve(async (req) => {
 
       const tokenData = await tokenResponse.json();
 
-      // Get user info
+      // Get Discord user information
       const userResponse = await fetch('https://discord.com/api/users/@me', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
@@ -69,7 +82,9 @@ serve(async (req) => {
       });
 
       if (!userResponse.ok) {
-        return new Response(JSON.stringify({ error: 'Failed to fetch user information' }), {
+        const errorData = await userResponse.text();
+        console.error('Discord user fetch failed:', errorData);
+        return new Response(JSON.stringify({ error: 'Failed to fetch Discord user information' }), {
           status: 400,
           headers: {
             'Content-Type': 'application/json',
@@ -80,32 +95,43 @@ serve(async (req) => {
 
       const userData = await userResponse.json();
 
-      // Store verification data
+      // Create avatar URL
+      const avatarUrl = userData.avatar 
+        ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
+        : `https://cdn.discordapp.com/embed/avatars/${parseInt(userData.discriminator || '0') % 5}.png`;
+
+      // Store verification data in database
       const verificationRecord = {
-        id: `discord_${userData.id}`,
+        id: `discord_${userData.id}_${Date.now()}`,
         discordId: userData.id,
         username: userData.username,
         discriminator: userData.discriminator || '0',
-        avatarUrl: userData.avatar 
-          ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
-          : `https://cdn.discordapp.com/embed/avatars/${parseInt(userData.discriminator || '0') % 5}.png`,
+        avatarUrl: avatarUrl,
         accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
+        refreshToken: tokenData.refresh_token || null,
+        tokenType: tokenData.token_type || 'Bearer',
+        scope: tokenData.scope || 'identify guilds.join',
         serverId: serverId || 'web_verification',
         verifiedAt: new Date().toISOString(),
-        userId: userData.id
+        userId: userData.id, // Required for Blink DB
+        expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null
       };
 
+      // Store in verified users table
       await blink.db.verifiedUsers.create(verificationRecord);
+
+      console.log(`Discord user verified: ${userData.username}#${userData.discriminator} (${userData.id})`);
 
       return new Response(JSON.stringify({ 
         success: true, 
         user: {
           id: userData.id,
           username: userData.username,
-          discriminator: userData.discriminator,
-          avatar: verificationRecord.avatarUrl
-        }
+          discriminator: userData.discriminator || '0',
+          avatar: avatarUrl,
+          email: userData.email
+        },
+        serverId: serverId
       }), {
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +150,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Discord OAuth error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error', 
+      details: error.message 
+    }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
